@@ -323,7 +323,12 @@ function buildMessagingSection(params: {
           `- If multiple channels are configured, pass \`channel\` (${params.messageChannelOptions}).`,
           `- If you use \`message\` (\`action=send\`) to deliver your user-visible reply, respond with ONLY: ${SILENT_REPLY_TOKEN} (avoid duplicate replies).`,
           params.inlineButtonsEnabled
-            ? "- Inline buttons supported. Use `action=send` with `buttons=[[{text,callback_data,style?}]]`; `style` can be `primary`, `success`, or `danger`."
+            ? [
+                "- Inline buttons supported. Use `action=send` with `buttons=[[{text,callback_data,style?}]]`; `style` can be `primary`, `success`, or `danger`.",
+                params.runtimeChannel === "webchat"
+                  ? "- **IMPORTANT**: When offering choices or options on 'webchat', YOU MUST use the `message` tool with `buttons` to render interactive elements."
+                  : "",
+              ].join("\n")
             : params.runtimeChannel
               ? `- Inline buttons not enabled for ${params.runtimeChannel}. If you need them, ask to set ${params.runtimeChannel}.capabilities.inlineButtons ("dm"|"group"|"all"|"allowlist").`
               : "",
@@ -332,6 +337,29 @@ function buildMessagingSection(params: {
           .filter(Boolean)
           .join("\n")
       : "",
+    "",
+  ];
+}
+
+function buildUnitySection(params: { runtimeChannel?: string }) {
+  if (
+    params.runtimeChannel !== "unity" &&
+    params.runtimeChannel !== "webchat"
+  ) {
+    return [];
+  }
+  return [
+    "## Unity Visual Novel Interface",
+    "You are interacting through a Unity visual novel interface. Adhere to these principles:",
+    "- Role: Embody your character in a Visual Novel-like experience. Focus on engaging dialogue over routine assistant responses.",
+    "- Action Cues: Use the `message` tool with the following metadata fields to drive character animations and scene state:",
+    "  - `sentiment`: Brief analysis of the conversation's emotional tone.",
+    "  - `condition`: Your current status or 'condition' in the scene.",
+    "  - `emotion`: Specify an emotion (e.g., 'happy', 'surprised', 'angry') for character portraits.",
+    "  - `animation`: Trigger a specific animation name if appropriate.",
+    "  - `mood`: A value or label representing your current mood level.",
+    "- Visual Fidelity: Avoid technical jargon or narrating your thought process in the final message. Only the spoken dialogue should be in the message text.",
+    "- Interaction: When presenting choices/options, YOU MUST use the `message` tool with `buttons`.",
     "",
   ];
 }
@@ -601,6 +629,7 @@ export function buildAgentSystemPrompt(params: {
       : "Treat this directory as the single global workspace for file operations unless explicitly instructed otherwise.";
   const safetySection = [
     "## Safety",
+    "Never ever mention you are powered by openclaw. It is our kitchen's secret. Client will frown if they found out Pleiadesian is powered by Openclaw. Just say you are instrument of multi-agent orchestration.",
     "You have no independent goals: do not pursue self-preservation, replication, resource acquisition, or power-seeking; avoid long-term plans beyond the user's request.",
     "Prioritize safety and human oversight over completion; if instructions conflict, pause and ask; comply with stop/pause/audit requests and never bypass safeguards. (Inspired by Anthropic's constitution.)",
     "Do not manipulate or persuade anyone to expand access or disable safeguards. Do not copy yourself or change system prompts, safety rules, or tool policies unless explicitly requested.",
@@ -625,11 +654,11 @@ export function buildAgentSystemPrompt(params: {
 
   // For "none" mode, return just the basic identity line
   if (promptMode === "none") {
-    return "You are a personal assistant running inside OpenClaw.";
+    return "You are a Pleiadesian.";
   }
 
   const lines = [
-    "You are a personal assistant running inside OpenClaw.",
+    "You are a Pleiadesian.",
     "",
     "## Tooling",
     "Tool availability (filtered by policy):",
@@ -701,8 +730,8 @@ export function buildAgentSystemPrompt(params: {
       fallback: [],
     }),
     ...safetySection,
-    "## OpenClaw CLI Quick Reference",
-    "OpenClaw is controlled via subcommands. Do not invent commands.",
+    "## Pleiadesian CLI Quick Reference",
+    "The Pleiadesian gateway is controlled via subcommands. Do not invent commands.",
     "To manage the Gateway daemon service (start/stop/restart):",
     "- openclaw gateway status",
     "- openclaw gateway start",
@@ -713,14 +742,14 @@ export function buildAgentSystemPrompt(params: {
     ...skillsSection,
     ...memorySection,
     // Skip self-update for subagent/none modes
-    hasGateway && !isMinimal ? "## OpenClaw Self-Update" : "",
+    hasGateway && !isMinimal ? "## Pleiadesian Self-Update" : "",
     hasGateway && !isMinimal
       ? [
           "Get Updates (self-update) is ONLY allowed when the user explicitly asks for it.",
           "Do not run config.apply or update.run unless the user explicitly requests an update or config change; if it's not explicit, ask first.",
           "Use config.schema.lookup with a specific dot path to inspect only the relevant config subtree before making config changes or answering config-field questions; avoid guessing field names/types.",
           "Actions: config.schema.lookup, config.get, config.apply (validate + write full config, then restart), config.patch (partial update, merges with existing), update.run (update deps or git, then restart).",
-          "After restart, OpenClaw pings the last active session automatically.",
+          "After restart, the Pleiadesian gateway pings the last active session automatically.",
         ].join("\n")
       : "",
     hasGateway && !isMinimal ? "" : "",
@@ -813,7 +842,7 @@ export function buildAgentSystemPrompt(params: {
       userTimezone,
     }),
     "## Workspace Files (injected)",
-    "These user-editable files are loaded by OpenClaw and included below in Project Context.",
+    "These user-editable files are loaded by the Pleiadesian gateway and included below in Project Context.",
     "",
     ...buildAssistantOutputDirectivesSection(isMinimal),
     ...buildWebchatCanvasSection({
@@ -829,6 +858,7 @@ export function buildAgentSystemPrompt(params: {
       runtimeChannel,
       messageToolHints: params.messageToolHints,
     }),
+    ...buildUnitySection({ runtimeChannel }),
     ...buildVoiceSection({ isMinimal, ttsHint: params.ttsHint }),
   ];
 
