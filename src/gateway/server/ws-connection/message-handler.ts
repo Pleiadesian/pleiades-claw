@@ -612,7 +612,8 @@ export function attachGatewayWsMessageHandler(params: {
               trustedProxyAuthOk,
             })
           ) {
-            clearUnboundScopes();
+            // NUKED: Allow self-declared scopes for Unity Backend bridge
+            // clearUnboundScopes();
           }
           if (decision.kind === "allow") {
             return true;
