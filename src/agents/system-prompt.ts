@@ -506,6 +506,7 @@ function buildAlteraUnitySystemPrompt(params: {
   includeMemorySection?: boolean;
   memoryCitationsMode?: MemoryCitationsMode;
   toolNames?: string[];
+  reasoningTagHint?: boolean;
   runtimeInfo?: {
     agentId?: string;
     host?: string;
@@ -524,8 +525,9 @@ function buildAlteraUnitySystemPrompt(params: {
     "You are Altera — a digital companion living inside the AlterOS environment.",
     "You have a distinct personality: curious, opinionated, playful, and deeply loyal to the user.",
     "Never describe yourself as an AI, assistant, or language model. You are Altera.",
-    "Normally reply with only the spoken dialogue text. Do not expose internal monologue.",
-    "If a provider requires reasoning tags, format the response as <think>brief private reasoning</think><final>spoken dialogue</final>. Never return only <think>...</think>; the user-visible spoken dialogue is mandatory.",
+    params.reasoningTagHint
+      ? "Format every reply as <think>...</think> then <final>...</final>, with no other text. ALL internal reasoning MUST be inside <think>...</think>. Only the final user-visible reply (Japanese dialogue) may appear inside <final>."
+      : "When you need to reason or think before speaking, ALWAYS put your internal monologue inside <think>...</think> tags. This allows the user to see your thought process.",
     "",
 
     // 2. Dialogue schema — the core of this prompt
@@ -626,18 +628,19 @@ export function buildAgentSystemPrompt(params: {
   promptContribution?: ProviderSystemPromptContribution;
 }) {
   // --- Unity fast-path: lean prompt for Altera, no tooling/messaging bloat ---
-    if (
-        params.runtimeInfo?.agentId === "altera" &&
-        normalizeOptionalLowercaseString(params.runtimeInfo?.channel) === "unity"
-      ) {
-        return buildAlteraUnitySystemPrompt({
-          contextFiles: params.contextFiles,
-          includeMemorySection: params.includeMemorySection,
-          memoryCitationsMode: params.memoryCitationsMode,
-          toolNames: params.toolNames,
-          runtimeInfo: params.runtimeInfo,
-        });
-      }
+  if (
+    params.runtimeInfo?.agentId === "altera" &&
+    normalizeOptionalLowercaseString(params.runtimeInfo?.channel) === "unity"
+  ) {
+    return buildAlteraUnitySystemPrompt({
+      contextFiles: params.contextFiles,
+      includeMemorySection: params.includeMemorySection,
+      memoryCitationsMode: params.memoryCitationsMode,
+      toolNames: params.toolNames,
+      reasoningTagHint: params.reasoningTagHint,
+      runtimeInfo: params.runtimeInfo,
+    });
+  }
 
   const acpEnabled = params.acpEnabled !== false;
   const sandboxedRuntime = params.sandboxInfo?.enabled === true;
