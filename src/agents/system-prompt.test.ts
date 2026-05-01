@@ -216,6 +216,23 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("<final>...</final>");
   });
 
+  it("requires visible dialogue for the Altera Unity fast path", () => {
+    const prompt = buildAgentSystemPrompt({
+      workspaceDir: "/tmp/openclaw",
+      runtimeInfo: {
+        agentId: "altera",
+        channel: "unity",
+      },
+    });
+
+    expect(prompt).toContain("## Altera Dialogue Engine");
+    expect(prompt).toContain("Normally reply with only the spoken dialogue text");
+    expect(prompt).toContain("<final>spoken dialogue</final>");
+    expect(prompt).toContain("Never return only <think>...</think>");
+    expect(prompt).not.toContain("## Messaging");
+    expect(prompt).not.toContain("## Silent Replies");
+  });
+
   it("includes a CLI quick reference section", () => {
     const prompt = buildAgentSystemPrompt({
       workspaceDir: "/tmp/openclaw",
