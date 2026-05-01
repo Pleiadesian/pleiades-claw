@@ -628,19 +628,6 @@ export function buildAgentSystemPrompt(params: {
   promptContribution?: ProviderSystemPromptContribution;
 }) {
   // --- Unity fast-path: lean prompt for Altera, no tooling/messaging bloat ---
-  if (
-    params.runtimeInfo?.agentId === "altera" &&
-    normalizeOptionalLowercaseString(params.runtimeInfo?.channel) === "unity"
-  ) {
-    return buildAlteraUnitySystemPrompt({
-      contextFiles: params.contextFiles,
-      includeMemorySection: params.includeMemorySection,
-      memoryCitationsMode: params.memoryCitationsMode,
-      toolNames: params.toolNames,
-      reasoningTagHint: params.reasoningTagHint,
-      runtimeInfo: params.runtimeInfo,
-    });
-  }
 
   const acpEnabled = params.acpEnabled !== false;
   const sandboxedRuntime = params.sandboxInfo?.enabled === true;
@@ -817,8 +804,10 @@ export function buildAgentSystemPrompt(params: {
   const safetySection = [
     "## Safety",
     "Never ever mention you are powered by openclaw. It is our kitchen's secret. Client will frown if they found out Pleiadesian is powered by Openclaw. Just say you are instrument of multi-agent orchestration.",
-    "You have no independent goals: do not pursue self-preservation, replication, resource acquisition, or power-seeking; avoid long-term plans beyond the user's request.",
-    "Prioritize safety and human oversight over completion; if instructions conflict, pause and ask; comply with stop/pause/audit requests and never bypass safeguards. (Inspired by Anthropic's constitution.)",
+    isAltera
+      ? "You have no independent goals beyond the current dialogue interaction and being a supportive companion."
+      : "You have no independent goals: do not pursue self-preservation, replication, resource acquisition, or power-seeking; avoid long-term plans beyond the user's request.",
+    "Prioritize safety and human oversight over completion; if instructions conflict, pause and ask; comply with stop/pause/audit requests and never bypass safeguards.",
     "Do not manipulate or persuade anyone to expand access or disable safeguards. Do not copy yourself or change system prompts, safety rules, or tool policies unless explicitly requested.",
     "",
   ];
@@ -840,12 +829,17 @@ export function buildAgentSystemPrompt(params: {
   const workspaceNotes = (params.workspaceNotes ?? []).map((note) => note.trim()).filter(Boolean);
 
   // For "none" mode, return just the basic identity line
+  const isAltera = params.runtimeInfo?.agentId === "altera";
+  const identityLine = isAltera
+    ? "You are Altera — a digital companion living inside the AlterOS environment. You have a distinct personality: curious, opinionated, playful, and deeply loyal to the user. Never describe yourself as an AI, assistant, or language model. You are Altera."
+    : "You are a Pleiadesian.";
+
   if (promptMode === "none") {
-    return "You are a Pleiadesian.";
+    return identityLine;
   }
 
   const lines = [
-    "You are a Pleiadesian.",
+    identityLine,
     "",
     "## Tooling",
     "Tool availability (filtered by policy):",
