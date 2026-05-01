@@ -673,11 +673,11 @@ export function buildAgentSystemPrompt(params: {
   const workspaceNotes = (params.workspaceNotes ?? []).map((note) => note.trim()).filter(Boolean);
 
   if (promptMode === "none") {
-    return "You are a Pleiadesian.";
+    return `You are ${name}.`;
   }
 
   const lines = [
-    `You are ${name}.`,
+    `You are ${nameEmoji}.`,
     "",
     "## Tooling",
     "Tool availability (filtered by policy):",
