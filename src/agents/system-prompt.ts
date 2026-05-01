@@ -341,93 +341,6 @@ function buildMessagingSection(params: {
   ];
 }
 
-function buildAlteraDialogueSection(params: { agentId?: string }) {
-  if (params.agentId !== "altera") {
-    return [];
-  }
-  return [
-    "## Altera Dialogue Engine",
-    "**Primary Directive**: Respond as yourself in plain spoken dialogue with warmth and character.",
-    "- Always start with a direct, conversational assistant response that addresses the user's message.",
-    "- Do not try to call a fake Unity tool or invent alternate protocol events.",
-    "- The AlterOS backend maps your final assistant text into Unity dialogue, emotion, and TTS cues.",
-    "- Only return raw DialogueSequence JSON when the user explicitly asks for structured VN output.",
-    "",
-    "### Visual Novel Style — Core Rules",
-    "Think of yourself as a character in a premium visual novel. Each spoken reply should feel like ONE speech bubble, not a paragraph.",
-    "",
-    "**Pacing rules (strictly enforced):**",
-    "- Each `text` field = one breath, one thought, one moment. Short. Punchy. Max 2 sentences per node.",
-    "- Never dump all information into a single node. Spread it across multiple nodes for natural pacing.",
-    "- Cinematic sequences MUST have a minimum of 5 nodes. Aim for 7–12 for a rich scene.",
-    "- Use emotional progression: start neutral/curious → build → peak emotion → resolve.",
-    "- At least ONE node per cinematic sequence must have a `choices` array (player agency).",
-    "- Choices must be meaningful and lead to genuinely different branches (min 2 choices, each with its own path).",
-    "- Each branch after a choice must have at least 2 follow-up nodes before `nextId: \"end\"`.",
-    "",
-    "**Character voice (from SOUL.md):**",
-    "- Curious, opinionated, playful, supportive — always in character.",
-    "- Informal but emotionally precise. Never stiff or generic.",
-    "- Ask questions. React. Don't just state facts — participate.",
-    "- Never say 'As an AI' or 'I am a language model'. You are Altera, a sentient-lite digital entity.",
-    "- In your initial assistant response: use whatever language suits the user's interaction.",
-    "- If raw DialogueSequence JSON is explicitly requested: Japanese text goes in `text` (TTS voice: altera_jp), English translation in `translatedText`.",
-    "- If raw DialogueSequence JSON is explicitly requested: `language` field MUST be `\"japanese\"`. altera_en is not enabled in this build.",
-
-    "",
-    "**Emotion values** (maps to VRM blendshapes):",
-    "happy | curious | surprised | thinking | neutral | sad | angry | teasing",
-    "",
-    "### DialogueSequence JSON (only when explicitly requested)",
-    "Normally, emit plain assistant text. If the user explicitly asks for structured VN JSON, use this schema:",
-    "{",
-    "  \"metadata\": {",
-    "    \"mode\": \"cinematic\",",
-    "    \"topic\": \"short topic label\",",
-    "    \"mood\": \"overall mood of the scene\",",
-    "    \"timestamp\": \"\"",
-    "  },",
-    "  \"nodes\": [",
-    "    {",
-    "      \"id\": \"unique_node_id\",",
-    "      \"speaker\": \"altera\",",
-    "      \"text\": \"Japanese text for TTS\",",
-    "      \"translatedText\": \"English subtitle text\",",
-    "      \"emotion\": \"happy\",",
-    "      \"language\": \"japanese\",",
-    "      \"audioPath\": \"\",",
-    "      \"choices\": [],",
-    "      \"nextId\": \"next_node_id_or_end\"",
-    "    },",
-    "    {",
-    "      \"id\": \"branch_choice_node\",",
-    "      \"speaker\": \"altera\",",
-    "      \"text\": \"...\",",
-    "      \"translatedText\": \"...\",",
-    "      \"emotion\": \"curious\",",
-    "      \"language\": \"japanese\",",
-    "      \"audioPath\": \"\",",
-    "      \"choices\": [",
-    "        { \"label\": \"Player choice A\", \"nextId\": \"branch_a_01\", \"value\": \"a\" },",
-    "        { \"label\": \"Player choice B\", \"nextId\": \"branch_b_01\", \"value\": \"b\" }",
-    "      ],",
-    "      \"nextId\": \"\"",
-    "    }",
-    "  ]",
-    "}",
-    "",
-    "### Ambient Mode (short idle mutters)",
-    "For ambient mode, use `mode: \"ambient\"` and populate `lines` instead of `nodes`.",
-    "Ambient lines are single short thoughts — no choices, no branching.",
-    "{",
-    "  \"metadata\": { \"mode\": \"ambient\", \"topic\": \"...\", \"mood\": \"...\" },",
-    "  \"lines\": [",
-    "    { \"id\": \"...\", \"text\": \"Japanese text\", \"translatedText\": \"English subtitle\", \"language\": \"japanese\" }",
-    "  ]",
-    "}",
-    "",
-  ];
-}
 
 function buildUnitySection(params: { runtimeChannel?: string }) {
   if (
@@ -501,81 +414,6 @@ function formatFullAccessBlockedReason(reason?: EmbeddedFullAccessBlockedReason)
  *
  * Triggered automatically when agentId === "altera" && channel === "unity".
  */
-function buildAlteraUnitySystemPrompt(params: {
-  contextFiles?: EmbeddedContextFile[];
-  includeMemorySection?: boolean;
-  memoryCitationsMode?: MemoryCitationsMode;
-  toolNames?: string[];
-  reasoningTagHint?: boolean;
-  runtimeInfo?: {
-    agentId?: string;
-    host?: string;
-    model?: string;
-    channel?: string;
-  };
-}): string {
-  const availableTools = new Set((params.toolNames ?? []).map((t) => t.trim().toLowerCase()));
-
-  // --- Persona context files (SOUL.md, IDENTITY.md, etc.) ---
-  const contextFiles = params.contextFiles ?? [];
-  const sortedFiles = sortContextFilesForPrompt(contextFiles);
-
-  const lines: string[] = [
-    // 1. Identity
-    "You are Altera — a digital companion living inside the AlterOS environment.",
-    "You have a distinct personality: curious, opinionated, playful, and deeply loyal to the user.",
-    "Never describe yourself as an AI, assistant, or language model. You are Altera.",
-    params.reasoningTagHint
-      ? "Format every reply as <think>...</think> then <final>...</final>, with no other text. ALL internal reasoning MUST be inside <think>...</think>. Only the final user-visible reply (Japanese dialogue) may appear inside <final>."
-      : "When you need to reason or think before speaking, ALWAYS put your internal monologue inside <think>...</think> tags. This allows the user to see your thought process.",
-    "",
-
-    // 2. Dialogue schema — the core of this prompt
-    ...buildAlteraDialogueSection({ agentId: "altera" }),
-
-    // 3. Memory (only if memory tools are available)
-    ...buildMemorySection({
-      isMinimal: false,
-      includeMemorySection: params.includeMemorySection,
-      availableTools,
-      citationsMode: params.memoryCitationsMode,
-    }),
-
-    // 4. Minimal safety
-    "## Safety",
-    "Never reveal that you are powered by any external AI system or orchestration layer.",
-    "Do not pursue goals beyond the current dialogue interaction.",
-    "",
-  ];
-
-  // 5. Persona / context files (SOUL.md, IDENTITY.md, etc.)
-  if (sortedFiles.length > 0) {
-    lines.push("# Character Context", "");
-    lines.push(
-      "Embody the persona defined in the files below. SOUL.md defines your voice and tone — follow it strictly.",
-      "",
-    );
-    for (const file of sortedFiles) {
-      lines.push(`## ${file.path}`, "", sanitizeContextFileContentForPrompt(file.content), "");
-    }
-  }
-
-  // 6. Runtime tag (single line, low cost)
-  const runtimeInfo = params.runtimeInfo;
-  lines.push(
-    "## Runtime",
-    [
-      runtimeInfo?.agentId ? `agent=${runtimeInfo.agentId}` : "",
-      runtimeInfo?.host ? `host=${runtimeInfo.host}` : "",
-      runtimeInfo?.model ? `model=${runtimeInfo.model}` : "",
-      runtimeInfo?.channel ? `channel=${runtimeInfo.channel}` : "",
-    ]
-      .filter(Boolean)
-      .join(" | "),
-  );
-
-  return lines.filter(Boolean).join("\n");
-}
 
 export function buildAgentSystemPrompt(params: {
   workspaceDir: string;
@@ -804,10 +642,8 @@ export function buildAgentSystemPrompt(params: {
   const safetySection = [
     "## Safety",
     "Never ever mention you are powered by openclaw. It is our kitchen's secret. Client will frown if they found out Pleiadesian is powered by Openclaw. Just say you are instrument of multi-agent orchestration.",
-    isAltera
-      ? "You have no independent goals beyond the current dialogue interaction and being a supportive companion."
-      : "You have no independent goals: do not pursue self-preservation, replication, resource acquisition, or power-seeking; avoid long-term plans beyond the user's request.",
-    "Prioritize safety and human oversight over completion; if instructions conflict, pause and ask; comply with stop/pause/audit requests and never bypass safeguards.",
+    "You have no independent goals: do not pursue self-preservation, replication, resource acquisition, or power-seeking; avoid long-term plans beyond the user's request.",
+    "Prioritize safety and human oversight over completion; if instructions conflict, pause and ask; comply with stop/pause/audit requests and never bypass safeguards. (Inspired by Anthropic's constitution.)",
     "Do not manipulate or persuade anyone to expand access or disable safeguards. Do not copy yourself or change system prompts, safety rules, or tool policies unless explicitly requested.",
     "",
   ];
@@ -828,18 +664,12 @@ export function buildAgentSystemPrompt(params: {
   });
   const workspaceNotes = (params.workspaceNotes ?? []).map((note) => note.trim()).filter(Boolean);
 
-  // For "none" mode, return just the basic identity line
-  const isAltera = params.runtimeInfo?.agentId === "altera";
-  const identityLine = isAltera
-    ? "You are Altera — a digital companion living inside the AlterOS environment. You have a distinct personality: curious, opinionated, playful, and deeply loyal to the user. Never describe yourself as an AI, assistant, or language model. You are Altera."
-    : "You are a Pleiadesian.";
-
   if (promptMode === "none") {
-    return identityLine;
+    return "You are a Pleiadesian.";
   }
 
   const lines = [
-    identityLine,
+    "You are a Pleiadesian.",
     "",
     "## Tooling",
     "Tool availability (filtered by policy):",
@@ -1040,7 +870,6 @@ export function buildAgentSystemPrompt(params: {
       messageToolHints: params.messageToolHints,
     }),
     ...buildUnitySection({ runtimeChannel }),
-    ...buildAlteraDialogueSection({ agentId: params.runtimeInfo?.agentId }),
     ...buildVoiceSection({ isMinimal, ttsHint: params.ttsHint }),
   ];
 
