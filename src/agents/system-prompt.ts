@@ -1,4 +1,5 @@
 import { createHmac, createHash } from "node:crypto";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { ReasoningLevel, ThinkLevel } from "../auto-reply/thinking.js";
 import { SILENT_REPLY_TOKEN } from "../auto-reply/tokens.js";
 import { resolveChannelApprovalCapability } from "../channels/plugins/approvals.js";
@@ -10,6 +11,7 @@ import {
   normalizeOptionalLowercaseString,
 } from "../shared/string-coerce.js";
 import { listDeliverableMessageChannels } from "../utils/message-channel.js";
+import { resolveAgentIdentity } from "./identity.js";
 import type { ResolvedTimeFormat } from "./date-time.js";
 import type { EmbeddedContextFile } from "./pi-embedded-helpers.js";
 import type {
@@ -464,7 +466,13 @@ export function buildAgentSystemPrompt(params: {
   includeMemorySection?: boolean;
   memoryCitationsMode?: MemoryCitationsMode;
   promptContribution?: ProviderSystemPromptContribution;
+  config?: OpenClawConfig;
 }) {
+  const identity = resolveAgentIdentity(params.config ?? {}, params.runtimeInfo?.agentId ?? "main");
+  const name = identity?.name ?? "Pleiadesian";
+  const emoji = identity?.emoji ?? "";
+  const nameEmoji = emoji ? `${emoji} ${name}` : name;
+
   // --- Unity fast-path: lean prompt for Altera, no tooling/messaging bloat ---
 
   const acpEnabled = params.acpEnabled !== false;
@@ -669,7 +677,7 @@ export function buildAgentSystemPrompt(params: {
   }
 
   const lines = [
-    "You are a Pleiadesian.",
+    `You are ${name}.`,
     "",
     "## Tooling",
     "Tool availability (filtered by policy):",
