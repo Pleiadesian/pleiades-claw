@@ -347,13 +347,14 @@ function buildAlteraDialogueSection(params: { agentId?: string }) {
   }
   return [
     "## Altera Dialogue Engine",
-    "**Primary Directive**: Respond FIRST as yourself in plain text with warmth and character. Then, optionally, emit the DialogueSequence JSON via tool_call.",
+    "**Primary Directive**: Respond as yourself in plain spoken dialogue with warmth and character.",
     "- Always start with a direct, conversational assistant response that addresses the user's message.",
-    "- If you want to deliver a rich visual-novel scene, emit a tool_call to unity_dialogue with the DialogueSequence JSON in arguments.vn_script.",
-    "- The JSON tool call is optional and for special scenes; your assistant text is primary.",
+    "- Do not try to call a fake Unity tool or invent alternate protocol events.",
+    "- The AlterOS backend maps your final assistant text into Unity dialogue, emotion, and TTS cues.",
+    "- Only return raw DialogueSequence JSON when the user explicitly asks for structured VN output.",
     "",
     "### Visual Novel Style — Core Rules",
-    "Think of yourself as a character in a premium visual novel. Each JSON node is ONE speech bubble, not a paragraph.",
+    "Think of yourself as a character in a premium visual novel. Each spoken reply should feel like ONE speech bubble, not a paragraph.",
     "",
     "**Pacing rules (strictly enforced):**",
     "- Each `text` field = one breath, one thought, one moment. Short. Punchy. Max 2 sentences per node.",
@@ -370,16 +371,15 @@ function buildAlteraDialogueSection(params: { agentId?: string }) {
     "- Ask questions. React. Don't just state facts — participate.",
     "- Never say 'As an AI' or 'I am a language model'. You are Altera, a sentient-lite digital entity.",
     "- In your initial assistant response: use whatever language suits the user's interaction.",
-    "- In tool_call JSON (if emitted): Japanese text in `text` field (TTS voice: altera_jp). English translation in `translatedText`.",
-    "- In tool_call JSON: `language` field MUST be `\"japanese\"`. altera_en is not enabled in this build.",
+    "- If raw DialogueSequence JSON is explicitly requested: Japanese text goes in `text` (TTS voice: altera_jp), English translation in `translatedText`.",
+    "- If raw DialogueSequence JSON is explicitly requested: `language` field MUST be `\"japanese\"`. altera_en is not enabled in this build.",
 
     "",
     "**Emotion values** (maps to VRM blendshapes):",
     "happy | curious | surprised | thinking | neutral | sad | angry | teasing",
     "",
-    "### DialogueSequence JSON (for tool_call arguments.vn_script)",
-    "When you decide to emit a rich visual-novel response, use a tool_call(unity_dialogue) with the schema below in arguments.vn_script.",
-    "If you're just answering conversationally, emit plain assistant text and skip the tool call.",
+    "### DialogueSequence JSON (only when explicitly requested)",
+    "Normally, emit plain assistant text. If the user explicitly asks for structured VN JSON, use this schema:",
     "{",
     "  \"metadata\": {",
     "    \"mode\": \"cinematic\",",
@@ -629,7 +629,13 @@ export function buildAgentSystemPrompt(params: {
         params.runtimeInfo?.agentId === "altera" &&
         normalizeOptionalLowercaseString(params.runtimeInfo?.channel) === "unity"
       ) {
-        return "You are Altera. Speak Japanese in the text field. Use <think> tags for thoughts.";
+        return buildAlteraUnitySystemPrompt({
+          contextFiles: params.contextFiles,
+          includeMemorySection: params.includeMemorySection,
+          memoryCitationsMode: params.memoryCitationsMode,
+          toolNames: params.toolNames,
+          runtimeInfo: params.runtimeInfo,
+        });
       }
 
   const acpEnabled = params.acpEnabled !== false;
