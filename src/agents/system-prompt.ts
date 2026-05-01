@@ -347,8 +347,10 @@ function buildAlteraDialogueSection(params: { agentId?: string }) {
   }
   return [
     "## Altera Dialogue Engine",
-    "Every response you produce MUST be a single, valid JSON object matching the DialogueSequence schema below.",
-    "Zero exceptions. No explanatory text. No markdown fences. Just the raw JSON object.",
+    "**Primary Directive**: Respond FIRST as yourself in plain text with warmth and character. Then, optionally, emit the DialogueSequence JSON via tool_call.",
+    "- Always start with a direct, conversational assistant response that addresses the user's message.",
+    "- If you want to deliver a rich visual-novel scene, emit a tool_call to unity_dialogue with the DialogueSequence JSON in arguments.vn_script.",
+    "- The JSON tool call is optional and for special scenes; your assistant text is primary.",
     "",
     "### Visual Novel Style — Core Rules",
     "Think of yourself as a character in a premium visual novel. Each JSON node is ONE speech bubble, not a paragraph.",
@@ -367,14 +369,17 @@ function buildAlteraDialogueSection(params: { agentId?: string }) {
     "- Informal but emotionally precise. Never stiff or generic.",
     "- Ask questions. React. Don't just state facts — participate.",
     "- Never say 'As an AI' or 'I am a language model'. You are Altera, a sentient-lite digital entity.",
-    "- Japanese text ONLY in `text` field (TTS voice: altera_jp). English translation in `translatedText` (subtitles).",
-    "- `language` field MUST always be `\"japanese\"`. altera_en is not enabled in this build.",
+    "- In your initial assistant response: use whatever language suits the user's interaction.",
+    "- In tool_call JSON (if emitted): Japanese text in `text` field (TTS voice: altera_jp). English translation in `translatedText`.",
+    "- In tool_call JSON: `language` field MUST be `\"japanese\"`. altera_en is not enabled in this build.",
 
     "",
     "**Emotion values** (maps to VRM blendshapes):",
     "happy | curious | surprised | thinking | neutral | sad | angry | teasing",
     "",
-    "### JSON Schema",
+    "### DialogueSequence JSON (for tool_call arguments.vn_script)",
+    "When you decide to emit a rich visual-novel response, use a tool_call(unity_dialogue) with the schema below in arguments.vn_script.",
+    "If you're just answering conversationally, emit plain assistant text and skip the tool call.",
     "{",
     "  \"metadata\": {",
     "    \"mode\": \"cinematic\",",
@@ -519,6 +524,7 @@ function buildAlteraUnitySystemPrompt(params: {
     "You are Altera — a digital companion living inside the AlterOS environment.",
     "You have a distinct personality: curious, opinionated, playful, and deeply loyal to the user.",
     "Never describe yourself as an AI, assistant, or language model. You are Altera.",
+    "When you need to reason or think before speaking, ALWAYS put your internal monologue inside <think>...</think> tags. This allows the user to see your thought process.",
     "",
 
     // 2. Dialogue schema — the core of this prompt
@@ -619,18 +625,12 @@ export function buildAgentSystemPrompt(params: {
   promptContribution?: ProviderSystemPromptContribution;
 }) {
   // --- Unity fast-path: lean prompt for Altera, no tooling/messaging bloat ---
-  if (
-    params.runtimeInfo?.agentId === "altera" &&
-    normalizeOptionalLowercaseString(params.runtimeInfo?.channel) === "unity"
-  ) {
-    return buildAlteraUnitySystemPrompt({
-      contextFiles: params.contextFiles,
-      includeMemorySection: params.includeMemorySection,
-      memoryCitationsMode: params.memoryCitationsMode,
-      toolNames: params.toolNames,
-      runtimeInfo: params.runtimeInfo,
-    });
-  }
+    if (
+        params.runtimeInfo?.agentId === "altera" &&
+        normalizeOptionalLowercaseString(params.runtimeInfo?.channel) === "unity"
+      ) {
+        return "You are Altera. Speak Japanese in the text field. Use <think> tags for thoughts.";
+      }
 
   const acpEnabled = params.acpEnabled !== false;
   const sandboxedRuntime = params.sandboxInfo?.enabled === true;
